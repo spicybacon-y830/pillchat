@@ -193,12 +193,12 @@ struct VoiceAttachment: View {
                     Circle().fill(D.red)
                     if playing {
                         HStack(spacing: 5 * S) {
-                            RoundedRectangle(cornerRadius: 1.5 * S).frame(width: 6 * S, height: 20 * S)
-                            RoundedRectangle(cornerRadius: 1.5 * S).frame(width: 6 * S, height: 20 * S)
+                            RoundedRectangle(cornerRadius: 1.5 * S).frame(width: 7 * S, height: 24 * S)
+                            RoundedRectangle(cornerRadius: 1.5 * S).frame(width: 7 * S, height: 24 * S)
                         }
                         .foregroundStyle(.white)
                     } else {
-                        GlyphView(glyph: .play, size: 24 * S, color: .white).offset(x: 1.5 * S)
+                        GlyphView(glyph: .play, size: 28 * S, color: .white).offset(x: 1.5 * S)
                     }
                 }
                 .frame(width: 60 * S, height: 60 * S)
@@ -307,7 +307,7 @@ struct VideoAttachment: View {
                 // Bouton lecture au centre.
                 ZStack {
                     Circle().fill(.black.opacity(0.45))
-                    GlyphView(glyph: .play, size: 26 * S, color: .white).offset(x: 2 * S)
+                    GlyphView(glyph: .play, size: 31 * S, color: .white).offset(x: 2 * S)
                 }
                 .frame(width: 64 * S, height: 64 * S)
                 // Durée en bas à droite.

@@ -1,7 +1,15 @@
 import AppKit
 
 /// Envoi par AppleScript : Messages.app fait le vrai travail, en arrière-plan.
+/// La réception, elle, ne dépend pas de Messages : le service système (imagent) écrit chat.db même app fermée.
 enum Sender {
+    /// Messages lancée par PillChat juste pour envoyer : on la referme ensuite (sauf « Garder Messages ouverte »).
+    static var autoQuit = true
+    private static var launchedByUs = false
+    private static var quitWork: DispatchWorkItem?
+    /// Délai après le dernier envoi avant de refermer Messages (le temps que le message parte vraiment).
+    static let quitDelay: TimeInterval = 20
+
     private static let queue = DispatchQueue(label: "pillchat.applescript", qos: .userInitiated)
     static let messagesID = "com.apple.MobileSMS"
 
@@ -29,6 +37,8 @@ enum Sender {
     }
 
     private static func run(_ sources: [String], completion: @escaping (Bool) -> Void) {
+        quitWork?.cancel()
+        if !messagesRunning { launchedByUs = true }
         ensureMessagesRunning()
         queue.async {
             var ok = false
@@ -38,8 +48,25 @@ enum Sender {
                 if error == nil { ok = true; dlog("envoyé"); break }
                 dlog("échec d'envoi \(String(describing: error?[NSAppleScript.errorNumber])) \(String(describing: error?[NSAppleScript.errorMessage]))")
             }
-            DispatchQueue.main.async { completion(ok) }
+            DispatchQueue.main.async { completion(ok); scheduleQuit() }
         }
+    }
+
+    /// Referme Messages un peu après le dernier envoi, si c'est PillChat qui l'a ouverte
+    /// et que tu ne l'utilises pas (pas au premier plan).
+    private static func scheduleQuit() {
+        quitWork?.cancel()
+        guard autoQuit, launchedByUs else { return }
+        let work = DispatchWorkItem {
+            guard autoQuit, launchedByUs else { return }
+            let apps = NSRunningApplication.runningApplications(withBundleIdentifier: messagesID)
+            if apps.contains(where: \.isActive) { launchedByUs = false; return } // tu t'en sers : on n'y touche pas
+            dlog("fermeture de Messages (ouverte pour l'envoi)")
+            launchedByUs = false
+            apps.forEach { $0.terminate() }
+        }
+        quitWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + quitDelay, execute: work)
     }
 
     /// Chaîne AppleScript : seuls `\` et `"` doivent être échappés.
@@ -51,7 +78,7 @@ enum Sender {
         !NSRunningApplication.runningApplications(withBundleIdentifier: messagesID).isEmpty
     }
 
-    /// Lance Messages masquée si elle est fermée : sans elle, rien n'arrive et rien ne part.
+    /// Lance Messages masquée si elle est fermée : sans elle, rien ne part.
     static func ensureMessagesRunning() {
         guard !messagesRunning,
               let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: messagesID) else { return }

@@ -231,7 +231,7 @@ struct CircleControl: View {
         // autour de l'icône, qui reste parfaitement centrée. La place est réservée (les voisins ne bougent pas).
         let side = D.control * S + (hovering ? 2 : 0)
         Button(action: action) {
-            GlyphView(glyph: glyph, size: 24 * S, color: color)
+            GlyphView(glyph: glyph, size: 29 * S, color: color)
                 .frame(width: side, height: side)
                 .contentShape(Circle())
                 .modifier(CircleBackground(glass: glass, fill: fill, S: S, tint: tint))
@@ -292,7 +292,7 @@ struct DraftFilesRow: View {
 
                     Button { c.removeFile(url) } label: {
                         Image(systemName: "xmark.circle.fill")
-                            .font(.system(size: 22 * S))
+                            .font(.system(size: 26 * S))
                             .symbolRenderingMode(.palette)
                             .foregroundStyle(.white, .black.opacity(0.55))
                     }
@@ -336,7 +336,7 @@ struct SendButton: View {
         // et la flèche reste parfaitement centrée. La place est réservée pour ne pas bouger les voisins.
         let side = D.control * S + (hovering ? 2 : 0)
         Button(action: action) {
-            GlyphView(glyph: .arrowUp, size: 26 * S, color: .white)
+            GlyphView(glyph: .arrowUp, size: 31 * S, color: .white)
                 .frame(width: side, height: side)
                 .contentShape(Circle())
                 .liquidGlass(Circle(), tint: D.blue) {
@@ -505,6 +505,8 @@ struct Grabber: View {
             .contentShape(Rectangle())
             // Le déplacement est fait par macOS (voir ChatHostingView) : on donne juste la zone.
             .onGeometryChange(for: CGRect.self, of: { $0.frame(in: .global) }) { c.grabberRect = $0 }
+            // Barre cachée (notif compacte, changement d'écran) : sa zone ne capte plus les clics.
+            .onDisappear { c.grabberRect = .zero }
             .onHover { inside in
                 if inside { NSCursor.resizeUpDown.push() } else { NSCursor.pop() }
             }
@@ -650,9 +652,9 @@ struct ConversationView: View {
         // Trombone : ouvre le Finder (jusqu'à 5 fichiers).
         Button { c.chooseFiles() } label: {
             Image(systemName: "paperclip")
-                .font(.system(size: 22 * S, weight: .medium))
+                .font(.system(size: 26 * S, weight: .medium))
                 .foregroundStyle(D.ink.opacity(0.45))
-                .frame(width: 30 * S, height: 30 * S)
+                .frame(width: 34 * S, height: 34 * S)
                 .contentShape(Rectangle())
         }
         .buttonStyle(Bouncy(pressed: 0.9, hovered: 1.1))
@@ -1060,7 +1062,7 @@ struct RecordBar: View {
         let shape = RoundedRectangle(cornerRadius: D.control * S / 2, style: .continuous)
         HStack(spacing: 16 * S) {
             Button { withAnimation(D.island) { recorder.discard() } } label: {
-                GlyphView(glyph: .trash, size: 26 * S, color: danger ? Self.dangerInk : D.red)
+                GlyphView(glyph: .trash, size: 31 * S, color: danger ? Self.dangerInk : D.red)
                     .scaleEffect(danger ? 1.18 : 1)
                     // Petit tremblement quand la suppression s'arme.
                     .keyframeAnimator(initialValue: 0.0, trigger: danger) { content, angle in
@@ -1108,7 +1110,7 @@ struct RecordBar: View {
                             }
                             .foregroundStyle(D.red)
                         default:
-                            GlyphView(glyph: .play, size: 24 * S, color: D.red)
+                            GlyphView(glyph: .play, size: 29 * S, color: D.red)
                         }
                     }
                     .frame(width: 32 * S, height: 32 * S)
@@ -1272,7 +1274,8 @@ struct PickerView: View {
             .padding(.bottom, 12 * S - 9 * S)
             .onGeometryChange(for: CGFloat.self, of: { $0.size.height }) { searchHeight = $0 }
         }
-        .frame(height: D.tallHeight * S)
+        // La barre du bas rallonge / raccourcit aussi l'accueil (même hauteur choisie que la conversation).
+        .frame(height: D.tallHeight * S + c.extraHeight)
         .animation(.spring(response: 0.45, dampingFraction: 0.85), value: results.map(\.id))
         .onChange(of: c.focusToken) { focused = c.focusToken > 0 }
     }

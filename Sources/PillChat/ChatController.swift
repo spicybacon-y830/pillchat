@@ -109,6 +109,7 @@ final class ChatController: ObservableObject {
     private var hasWorkInProgress: Bool {
         !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draftFiles.isEmpty
             || recorder.isActive || !query.trimmingCharacters(in: .whitespaces).isEmpty || choosingFiles
+            || isTyping // curseur dans le champ : on peut écrire souris hors de la pilule
     }
 
     private func scheduleLeaveHide() {
@@ -170,6 +171,7 @@ final class ChatController: ObservableObject {
         peekable = true
         withAnimation(D.island) { peek = false }
         if transient { transient = false; loadHistory() }
+        focus(field: true) // clic dans la notif : curseur prêt
     }
 
     func pointerChanged(inside: Bool) {
@@ -189,7 +191,7 @@ final class ChatController: ObservableObject {
             collapseWork?.cancel()
             let work = DispatchWorkItem { [weak self] in
                 guard let self, !self.pointerInside, self.mode == .conversation,
-                      !self.recorder.isActive, !self.choosingFiles else { return }
+                      !self.recorder.isActive, !self.choosingFiles, !self.isTyping else { return }
                 withAnimation(D.island) { self.peek = true }
             }
             collapseWork = work
@@ -243,7 +245,7 @@ final class ChatController: ObservableObject {
             if switching { history = [] }
         }
         loadHistory()
-        focus()
+        focus(field: true) // conversation ouverte : curseur prêt, on tape tout de suite
     }
 
     /// `focus` : prendre le clavier (seulement sur demande explicite : raccourci, icône, retour).
@@ -298,6 +300,8 @@ final class ChatController: ObservableObject {
             panel.orderOut(nil)
             panel.orderFrontRegardless()
         }
+        // Souris déjà dehors : la pilule peut maintenant disparaître comme d'habitude.
+        if !pointerInside, shown { scheduleLeaveHide() }
     }
 
 

@@ -106,7 +106,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     private var keepMessagesOpen: Bool {
-        get { defaults.object(forKey: "keepMessagesOpen") as? Bool ?? true }
+        get { defaults.object(forKey: "keepMessagesOpen") as? Bool ?? false } // fermée par défaut
         set { defaults.set(newValue, forKey: "keepMessagesOpen") }
     }
 
@@ -139,12 +139,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             }
             self.updatePassthrough()
         }
-        // Poignée : glisser = déplacement natif (fluide, géré par macOS), double-clic = fermer.
+        // Barre du bas : sert uniquement à rallonger / raccourcir la pilule. Bords : déplacement natif.
         host.onMouseDown = { [weak self] point, event in
             guard let self else { return false }
             self.controller.unfoldIfNeeded()
             // Trait du bas : glisser = rallonger / raccourcir la pilule.
-            if self.controller.grabberRect.insetBy(dx: -6, dy: -6).contains(point) {
+            if self.controller.grabberRect != .zero, self.controller.grabberRect.insetBy(dx: -6, dy: -6).contains(point) {
                 self.grabberDown(event)
                 return true
             }
@@ -187,8 +187,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }.store(in: &cancellables)
         store.start()
 
-        // Messages doit tourner (masquée) pour recevoir et envoyer.
+        // Messages peut rester fermée : la réception passe par chat.db, et l'envoi l'ouvre masquée
+        // le temps d'envoyer puis la referme. « Garder Messages ouverte » la laisse tourner en permanence.
+        Sender.autoQuit = !keepMessagesOpen
         if keepMessagesOpen { Sender.ensureMessagesRunning() }
+        setupMainMenu()
         NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.didTerminateApplicationNotification)
             .compactMap { $0.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication }
             .filter { $0.bundleIdentifier == Sender.messagesID }
@@ -213,10 +216,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                self.controller.mode == .conversation, self.controller.pasteFiles() {
                 return nil
             }
-            // @ : fermer la pilule, sauf quand le curseur est dans un champ (on peut alors taper @ normalement).
-            // On teste le caractère produit et non la position de la touche : marche en AZERTY comme en QWERTY.
+            // ⌘W ou @ : fermer la pilule. @ seulement quand le curseur n'est pas dans un champ
+            // (on peut alors taper @ normalement). On teste le caractère produit et non la position
+            // de la touche : marche en AZERTY comme en QWERTY.
             let mods = e.modifierFlags.intersection([.command, .control, .option])
-            if mods.isEmpty, e.characters == "@", !self.controller.isTyping {
+            let cmdW = mods == .command && e.charactersIgnoringModifiers?.lowercased() == "w"
+            let at = mods.isEmpty && e.characters == "@" && !self.controller.isTyping
+            if cmdW || at {
                 self.controller.hide()
                 return nil
             }
@@ -257,6 +263,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.openPicker()
         return false
     }
+
+    /// Menu de l'app (elle est dans le Dock) : de quoi la quitter avec ⌘Q.
+    private func setupMainMenu() {
+        let main = NSMenu()
+        let appItem = NSMenuItem()
+        let appMenu = NSMenu()
+        appMenu.addItem(withTitle: "Écrire à quelqu'un", action: #selector(openPickerFromMenu), keyEquivalent: "n")
+        appMenu.addItem(.separator())
+        appMenu.addItem(withTitle: "Quitter PillChat", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        appItem.submenu = appMenu
+        main.addItem(appItem)
+        NSApp.mainMenu = main
+    }
+
+    @objc private func openPickerFromMenu() { controller.openPicker() }
 
     private func updatePassthrough() {
         guard panel.isVisible, controller.shown else { panel.ignoresMouseEvents = true; controller.pointerInside = false; return }
@@ -498,6 +519,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let keep = ActionItem("Garder Messages ouverte") { [weak self] in
             guard let self else { return }
             self.keepMessagesOpen.toggle()
+            Sender.autoQuit = !self.keepMessagesOpen
             if self.keepMessagesOpen { Sender.ensureMessagesRunning() }
         }
         keep.state = keepMessagesOpen ? .on : .off
