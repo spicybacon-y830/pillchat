@@ -614,7 +614,6 @@ struct ConversationView: View {
         .onChange(of: focused) { dlog("champ de message : \(focused ? "actif" : "inactif") (fenêtre clé : \(c.panel?.isKeyWindow == true))") }
         .onAppear {
             dlog("conversation affichée (compact : \(c.peek), transient : \(c.transient))")
-            if !c.transient { focused = true }
         }
     }
 
@@ -628,8 +627,8 @@ struct ConversationView: View {
             Spacer(minLength: 0)
             // Appel FaceTime audio direct (pas pour les groupes).
             if c.chat?.isGroup == false {
-                // Vert franc + icône blanche : lisible en clair comme en sombre.
-                CircleControl(glyph: .phone, S: S, color: .white, fill: Color(hex: 0x34C759), tint: Color(hex: 0x28B44E)) { c.call() }
+                // Rond blanc plein + icône verte (sans verre : sur macOS 26 le verre ignore la couleur de fond).
+                CircleControl(glyph: .phone, S: S, color: Color(hex: 0x34C759), fill: .white, glass: false) { c.call() }
                     .help("Appel FaceTime audio")
             }
         }
@@ -694,6 +693,9 @@ struct MessageList: View {
     private let _contentHeightBox = State<CGFloat>(initialValue: 0)
     private var contentHeight: CGFloat { get { _contentHeightBox.wrappedValue } nonmutating set { _contentHeightBox.wrappedValue = newValue } }
 
+    /// Hauteur max des messages dans une notif compacte (sous l'en-tête).
+    static let peekHeight: CGFloat = 200
+
     var body: some View {
         let S = c.S
         let msgs = c.history
@@ -704,7 +706,7 @@ struct MessageList: View {
                     ForEach(Array(msgs.enumerated()), id: \.element.listID) { i, m in
                         let lastOfRun = i == msgs.count - 1 || msgs[i + 1].fromMe != m.fromMe
                         VStack(alignment: .trailing, spacing: 6 * S) {
-                            Bubble(message: m, chat: c.chat, showAvatar: !m.fromMe && lastOfRun, S: S,
+                            Bubble(message: m, chat: c.chat, showAvatar: !m.fromMe && lastOfRun, S: S, compact: c.peek,
                                    onReact: m.pending ? nil : { c.react($0) },
                                    onLanded: { c.addLocalReaction($0, to: m.listID) })
                                 .zIndex(1)
@@ -743,9 +745,10 @@ struct MessageList: View {
             }
             // La fenêtre épouse le contenu : un message reçu = une fenêtre courte, comme dans la maquette.
             // Rallongée avec le trait du bas : toute la hauteur choisie, même si la conversation est courte.
-            // Notif compacte : la hauteur suit la longueur des messages (jusqu'au maximum).
+            // Notif compacte : la hauteur suit la longueur des messages, plafonnée bas (2-3 bulles,
+            // les derniers messages en bas). Le survol déplie la pilule pour voir le reste.
             // Sinon : hauteur choisie avec le trait du bas, ou maximale quand la notif est dépliée.
-            .frame(height: c.peek ? min(max(contentHeight, 80 * S), maxHeight)
+            .frame(height: c.peek ? min(max(contentHeight, 80 * S), maxHeight, topInset + Self.peekHeight * S)
                    : ((c.extraHeight != 0 || c.unfolded) ? maxHeight : min(max(contentHeight, 80 * S), maxHeight)))
             .defaultScrollAnchor(.bottom)
             // Nouvelle liste à chaque conversation chargée : elle s'ouvre en bas, sans défilement visible.
@@ -864,6 +867,8 @@ struct Bubble: View {
     let chat: ChatInfo?
     let showAvatar: Bool
     let S: CGFloat
+    /// Notif compacte : texte coupé à 2 lignes, pas de cartes de liens.
+    var compact = false
     /// Réaction choisie au survol (envoyée comme emoji : AppleScript ne permet pas les vrais tapbacks).
     var onReact: ((String) -> Void)? = nil
     private let _pickerBox = State<Bool>(initialValue: false)
@@ -959,6 +964,8 @@ struct Bubble: View {
                     Text(message.text).font(.system(size: 56 * S)).padding(.horizontal, 6 * S)
                 } else if !message.text.isEmpty, !message.text.isOnlyLink {
                     Text(message.text)
+                        .lineLimit(compact ? 2 : nil)
+                        .truncationMode(.tail)
                         .font(D.font(24 * S))
                         .foregroundStyle(message.fromMe || message.failed ? Color.white.opacity(0.85) : D.ink.opacity(0.85))
                         .lineSpacing(4 * S)
@@ -970,7 +977,7 @@ struct Bubble: View {
                         )
                 }
                 // Cartes de liens (Apple Music, YouTube, articles…), rendu natif de Messages.
-                ForEach(Array(message.text.links.prefix(2)), id: \.self) { url in
+                ForEach(Array(message.text.links.prefix(compact ? 0 : 2)), id: \.self) { url in
                     LinkAttachment(url: url, S: S)
                 }
             }
@@ -1306,11 +1313,12 @@ struct ContactDisc: View {
                 .frame(width: size, height: size)
                 .clipShape(Circle())
                 .shadow(color: .black.opacity(hovering ? 0.08 : 0.04), radius: 27 * S, y: hovering ? 4 * S : 0)
-                .overlay(alignment: .topTrailing) {
+                // Bulle d'aperçu : même largeur que la photo, posée en haut, à cheval sur son bord.
+                .overlay(alignment: .top) {
                     if let preview, preview.received {
-                        PreviewBubble(preview: preview, S: S)
-                            .offset(x: 26 * S, y: -6 * S)
-                            .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottomLeading)))
+                        PreviewBubble(preview: preview, S: S, width: size)
+                            .offset(y: -14 * S)
+                            .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .bottom)))
                     }
                 }
 
@@ -1334,26 +1342,23 @@ struct ContactDisc: View {
 struct PreviewBubble: View {
     let preview: ChatPreview
     let S: CGFloat
-
-    /// Extrait coupé à la main : la bulle prend sa largeur naturelle (plus bornée par la photo).
-    private var excerpt: String {
-        let t = preview.excerpt
-        return t.count > 20 ? String(t.prefix(19)).trimmingCharacters(in: .whitespaces) + "…" : t
-    }
+    /// Largeur fixe : celle de la photo. Le texte trop long est coupé avec « … ».
+    let width: CGFloat
 
     var body: some View {
         HStack(spacing: 9 * S) {
             if preview.unread {
                 Circle().fill(D.blue).frame(width: 14 * S, height: 14 * S)
             }
-            Text(excerpt)
+            Text(preview.excerpt)
                 .font(D.font(22 * S, preview.unread ? 600 : 500))
                 .foregroundStyle(D.ink.opacity(preview.unread ? 0.9 : 0.65))
                 .lineLimit(1)
+                .truncationMode(.tail)
         }
-        .fixedSize()
         .padding(.horizontal, 16 * S)
         .padding(.vertical, 10 * S)
+        .frame(width: width)
         .background(
             Capsule().fill(D.card)
                 .shadow(color: .black.opacity(0.1), radius: 10 * S, y: 3 * S)

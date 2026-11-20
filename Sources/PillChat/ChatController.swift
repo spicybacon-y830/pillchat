@@ -315,10 +315,23 @@ final class ChatController: ObservableObject {
         }
     }
 
-    func focus() {
+    /// Donne le clavier à la pilule. Par défaut sans activer le champ de saisie : le curseur n'apparaît
+    /// qu'au clic dans le champ, et la touche @ ferme la pilule tant qu'on n'écrit pas.
+    /// `field: true` : activer aussi le champ (on était déjà en train d'écrire : envoi, pièce jointe).
+    func focus(field: Bool = false) {
         panel?.makeKey()
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) { self.focusToken = abs(self.focusToken) + 1 }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+            if field {
+                self.focusToken = abs(self.focusToken) + 1
+            } else {
+                self.focusToken = -abs(self.focusToken) - 1
+                self.panel?.makeFirstResponder(nil)
+            }
+        }
     }
+
+    /// Le champ de saisie (message ou recherche) a le curseur.
+    var isTyping: Bool { panel?.isKeyWindow == true && panel?.firstResponder is NSTextView }
 
     // MARK: Apparition
 
@@ -348,7 +361,7 @@ final class ChatController: ObservableObject {
         if recorder.isActive { sendVoice(to: c); return }
         let text = draft.trimmingCharacters(in: .whitespacesAndNewlines)
         let files = draftFiles
-        guard !text.isEmpty || !files.isEmpty else { focus(); return }
+        guard !text.isEmpty || !files.isEmpty else { focus(field: true); return }
         draft = ""
         withAnimation(D.island) { draftFiles = [] }
         for url in files { sendFile(url, to: c) }
@@ -367,7 +380,7 @@ final class ChatController: ObservableObject {
         let fresh = urls.filter { u in !draftFiles.contains(u) }.prefix(room)
         if urls.count > room { NSSound.beep() } // au-delà de 5 fichiers
         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) { draftFiles += fresh }
-        focus()
+        focus(field: true)
     }
 
     func removeFile(_ url: URL) {

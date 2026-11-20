@@ -213,9 +213,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                self.controller.mode == .conversation, self.controller.pasteFiles() {
                 return nil
             }
-            // ⌘W : fermer la pilule.
-            // On teste le caractère et non la position de la touche : marche en AZERTY comme en QWERTY.
-            if e.modifierFlags.contains(.command), e.charactersIgnoringModifiers?.lowercased() == "w" {
+            // @ : fermer la pilule, sauf quand le curseur est dans un champ (on peut alors taper @ normalement).
+            // On teste le caractère produit et non la position de la touche : marche en AZERTY comme en QWERTY.
+            let mods = e.modifierFlags.intersection([.command, .control, .option])
+            if mods.isEmpty, e.characters == "@", !self.controller.isTyping {
                 self.controller.hide()
                 return nil
             }
