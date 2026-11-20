@@ -21,6 +21,7 @@ cat > "$APP/Contents/Info.plist" <<'PLIST'
     <key>CFBundleIdentifier</key><string>app.pillchat.PillChat</string>
     <key>CFBundleExecutable</key><string>PillChat</string>
     <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleIconFile</key><string>AppIcon</string>
     <key>CFBundleShortVersionString</key><string>0.1</string>
     <key>CFBundleVersion</key><string>1</string>
     <key>LSMinimumSystemVersion</key><string>14.0</string>

@@ -400,13 +400,28 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     // MARK: Icône dans la barre des menus
 
+    /// La mascotte dans la barre des menus.
+    static func mascotIcon() -> NSImage {
+        // Logo fourni (blanc sur fond transparent, Resources/MenuIcon.png) en image « modèle » :
+        // macOS l'affiche en blanc sur une barre sombre (et en noir sur une barre claire).
+        guard let src = Bundle.main.image(forResource: "MenuIcon") else {
+            return NSImage(systemSymbolName: "circle.fill", accessibilityDescription: nil) ?? NSImage()
+        }
+        let h: CGFloat = 16
+        let w = h * src.size.width / max(src.size.height, 1)
+        let img = NSImage(size: NSSize(width: w, height: h), flipped: false) { rect in
+            src.draw(in: rect, from: .zero, operation: .sourceOver, fraction: 1)
+            return true
+        }
+        img.isTemplate = true
+        return img
+    }
+
     /// Clic : écrire à quelqu'un (les cercles). Clic droit ou ⌥-clic : le menu.
     private func setupStatusItem() {
         let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.variableLength)
         if let button = item.button {
-            let image = NSImage(systemSymbolName: "bubble.left.fill", accessibilityDescription: "PillChat")
-            image?.isTemplate = true
-            button.image = image
+            button.image = Self.mascotIcon()
             button.toolTip = "PillChat — écrire à quelqu'un (⌃⌘R)"
             button.target = self
             button.action = #selector(statusItemClicked(_:))
