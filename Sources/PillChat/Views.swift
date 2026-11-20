@@ -743,7 +743,10 @@ struct MessageList: View {
             }
             // La fenêtre épouse le contenu : un message reçu = une fenêtre courte, comme dans la maquette.
             // Rallongée avec le trait du bas : toute la hauteur choisie, même si la conversation est courte.
-            .frame(height: (c.extraHeight != 0 || c.unfolded) ? maxHeight : min(max(contentHeight, 80 * S), maxHeight))
+            // Notif compacte : la hauteur suit la longueur des messages (jusqu'au maximum).
+            // Sinon : hauteur choisie avec le trait du bas, ou maximale quand la notif est dépliée.
+            .frame(height: c.peek ? min(max(contentHeight, 80 * S), maxHeight)
+                   : ((c.extraHeight != 0 || c.unfolded) ? maxHeight : min(max(contentHeight, 80 * S), maxHeight)))
             .defaultScrollAnchor(.bottom)
             // Nouvelle liste à chaque conversation chargée : elle s'ouvre en bas, sans défilement visible.
             .id(c.historyVersion)

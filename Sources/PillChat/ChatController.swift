@@ -99,6 +99,29 @@ final class ChatController: ObservableObject {
         if !pointerInside { scheduleNotifHide() }
     }
 
+    // MARK: Disparition quand la souris sort
+
+    private var leaveWork: DispatchWorkItem?
+    /// Fenêtre du Finder ouverte (trombone) : la souris sort forcément, on ne ferme pas.
+    var choosingFiles = false
+
+    /// Quelque chose est en cours : message commencé, pièces jointes, vocal, recherche tapée…
+    private var hasWorkInProgress: Bool {
+        !draft.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !draftFiles.isEmpty
+            || recorder.isActive || !query.trimmingCharacters(in: .whitespaces).isEmpty || choosingFiles
+    }
+
+    private func scheduleLeaveHide() {
+        leaveWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.shown, !self.pointerInside, !self.hasWorkInProgress, self.mode != .setup else { return }
+            self.fromNotification = false
+            self.hide()
+        }
+        leaveWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0, execute: work)
+    }
+
     // MARK: Disparition façon notification
 
     /// Pilule ouverte par un message reçu : elle disparaît seule si on ne la survole pas.
@@ -150,25 +173,27 @@ final class ChatController: ObservableObject {
     }
 
     func pointerChanged(inside: Bool) {
-        // Survol : la notif reste ; la souris s'en va : elle repart dans 5 secondes.
-        if fromNotification, shown {
-            if inside { cancelNotifHide(forget: false) } else { scheduleNotifHide() }
-        }
+        // Partout : la souris sort de la pilule → elle disparaît (sauf si quelque chose est en cours).
+        if inside { leaveWork?.cancel() } else if shown { scheduleLeaveHide() }
+        // Notif : survol = elle reste.
+        if fromNotification, shown, inside { cancelNotifHide(forget: false) }
         guard mode == .conversation, shown else { return }
         if inside {
             collapseWork?.cancel()
             guard peek else { return }
-            peekable = true
+            if transient { peekable = true } // notif dépliée : hauteur maximale
             withAnimation(D.island) { peek = false }
             if transient { transient = false; loadHistory() } // le contexte de la conversation arrive
-        } else if peekable, !peek {
+        } else if !peek {
+            // Curseur hors de la pilule : la zone de saisie se replie (le brouillon est gardé).
             collapseWork?.cancel()
             let work = DispatchWorkItem { [weak self] in
-                guard let self, self.peekable, !self.isBusy, !self.pointerInside, self.mode == .conversation else { return }
+                guard let self, !self.pointerInside, self.mode == .conversation,
+                      !self.recorder.isActive, !self.choosingFiles else { return }
                 withAnimation(D.island) { self.peek = true }
             }
             collapseWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.7, execute: work)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
         }
     }
 
@@ -380,7 +405,9 @@ final class ChatController: ObservableObject {
         open.message = "Choisis jusqu'à \(Self.maxFiles) fichiers à envoyer"
         open.prompt = "Ajouter"
         NSApp.activate(ignoringOtherApps: true) // la fenêtre de choix doit passer devant
+        choosingFiles = true
         open.begin { [weak self] response in
+            self?.choosingFiles = false
             guard response == .OK else { return }
             self?.addFiles(open.urls)
         }
