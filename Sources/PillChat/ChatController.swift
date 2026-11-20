@@ -95,6 +95,33 @@ final class ChatController: ObservableObject {
         // Pas de focus automatique : on ne vole pas le clavier à l'app en cours.
         // Un clic dans le champ (ou ⌃⌘R) suffit pour écrire.
         show()
+        fromNotification = true
+        if !pointerInside { scheduleNotifHide() }
+    }
+
+    // MARK: Disparition façon notification
+
+    /// Pilule ouverte par un message reçu : elle disparaît seule si on ne la survole pas.
+    private var fromNotification = false
+    private var notifHideWork: DispatchWorkItem?
+    static let notifDelay: TimeInterval = 5
+
+    private func scheduleNotifHide() {
+        notifHideWork?.cancel()
+        let work = DispatchWorkItem { [weak self] in
+            guard let self, self.fromNotification, self.shown, !self.pointerInside else { return }
+            // En train d'écrire, d'enregistrer, ou le champ a le clavier : on laisse la pilule.
+            if self.isBusy { return }
+            self.fromNotification = false
+            self.hide()
+        }
+        notifHideWork = work
+        DispatchQueue.main.asyncAfter(deadline: .now() + Self.notifDelay, execute: work)
+    }
+
+    private func cancelNotifHide(forget: Bool) {
+        notifHideWork?.cancel()
+        if forget { fromNotification = false }
     }
 
     // MARK: Notif compacte (« peek »)
@@ -123,6 +150,10 @@ final class ChatController: ObservableObject {
     }
 
     func pointerChanged(inside: Bool) {
+        // Survol : la notif reste ; la souris s'en va : elle repart dans 5 secondes.
+        if fromNotification, shown {
+            if inside { cancelNotifHide(forget: false) } else { scheduleNotifHide() }
+        }
         guard mode == .conversation, shown else { return }
         if inside {
             collapseWork?.cancel()
@@ -178,6 +209,7 @@ final class ChatController: ObservableObject {
 
     func open(_ c: ChatInfo) {
         dlog(String(format: "ouverture de la conversation %@", c.name))
+        cancelNotifHide(forget: true) // ouverte à la main : plus de disparition automatique
         recorder.discard()
         peekable = false
         let switching = c.id != chat?.id || transient
@@ -191,6 +223,7 @@ final class ChatController: ObservableObject {
 
     /// `focus` : prendre le clavier (seulement sur demande explicite : raccourci, icône, retour).
     func openPicker(focus wantsFocus: Bool = true) {
+        cancelNotifHide(forget: true)
         recorder.discard()
         peek = false
         query = ""
