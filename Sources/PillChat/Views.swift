@@ -1203,8 +1203,9 @@ struct PickerView: View {
         ZStack(alignment: .bottom) {
             // Toutes les conversations, en grille de 3, à faire défiler. La recherche filtre la grille.
             ScrollView(.vertical, showsIndicators: false) {
+                // Espace vertical généreux : la bulle d'aperçu d'une photo ne touche pas le prénom au-dessus.
                 LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 20 * S, alignment: .top), count: 3),
-                          spacing: 22 * S) {
+                          spacing: 40 * S) {
                     ForEach(Array(results.enumerated()), id: \.element.id) { i, chat in
                         ContactDisc(chat: chat, preview: store.previews[chat.id], S: S) { c.open($0) }
                             .zIndex(Double(1000 - i)) // la bulle d'aperçu passe au-dessus du cercle voisin
@@ -1334,18 +1335,25 @@ struct PreviewBubble: View {
     let preview: ChatPreview
     let S: CGFloat
 
+    /// Extrait coupé à la main : la bulle prend sa largeur naturelle (plus bornée par la photo).
+    private var excerpt: String {
+        let t = preview.excerpt
+        return t.count > 20 ? String(t.prefix(19)).trimmingCharacters(in: .whitespaces) + "…" : t
+    }
+
     var body: some View {
-        HStack(spacing: 7 * S) {
+        HStack(spacing: 9 * S) {
             if preview.unread {
-                Circle().fill(D.blue).frame(width: 10 * S, height: 10 * S)
+                Circle().fill(D.blue).frame(width: 14 * S, height: 14 * S)
             }
-            Text(preview.excerpt)
-                .font(D.font(16 * S, preview.unread ? 500 : 400))
-                .foregroundStyle(D.ink.opacity(preview.unread ? 0.85 : 0.6))
+            Text(excerpt)
+                .font(D.font(22 * S, preview.unread ? 600 : 500))
+                .foregroundStyle(D.ink.opacity(preview.unread ? 0.9 : 0.65))
                 .lineLimit(1)
         }
-        .padding(.horizontal, 13 * S)
-        .padding(.vertical, 8 * S)
+        .fixedSize()
+        .padding(.horizontal, 16 * S)
+        .padding(.vertical, 10 * S)
         .background(
             Capsule().fill(D.card)
                 .shadow(color: .black.opacity(0.1), radius: 10 * S, y: 3 * S)
