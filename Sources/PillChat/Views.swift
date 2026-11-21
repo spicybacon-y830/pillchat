@@ -518,6 +518,8 @@ struct Grabber: View {
 struct ConversationView: View {
     @ObservedObject var c: ChatController
     @ObservedObject var recorder: VoiceRecorder
+    /// Les 9 emojis choisis (fenêtre « Choisir les emojis… »).
+    @ObservedObject private var emojiPrefs = EmojiPrefs.shared
     let ns: Namespace.ID
     @Namespace private var glass
     @FocusState private var focused: Bool
@@ -575,7 +577,7 @@ struct ConversationView: View {
                     }
                     .modifier(RiseIn(distance: 30 * S))
 
-                    EmojiRow(emojis: D.reactions, size: 40 * S, S: S) { c.react($0) }
+                    EmojiRow(emojis: emojiPrefs.emojis, size: 40 * S, S: S) { c.react($0) }
                         .padding(.horizontal, 38 * S)
                         .padding(.vertical, 2 * S)
 

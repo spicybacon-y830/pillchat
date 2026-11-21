@@ -283,6 +283,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 guard let self, self.store.access != .denied, !self.controller.shown else { return }
                 self.controller.openPicker(focus: false) // ne pas voler le clavier au lancement
                 // Vérification visuelle : ouvre la conversation la plus récente (sans prendre le clavier).
+                // Vérification visuelle : ouvre la fenêtre de choix des emojis.
+                if CommandLine.arguments.contains("--emoji-settings") { EmojiSettingsWindow.show() }
                 if CommandLine.arguments.contains("--open-recent") {
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.2) {
                         if let first = self.store.recents.first {
@@ -307,6 +309,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "Écrire à quelqu'un", action: #selector(openPickerFromMenu), keyEquivalent: "n")
+        appMenu.addItem(withTitle: "Choisir les emojis…", action: #selector(openEmojiSettings), keyEquivalent: ",")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Quitter PillChat", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         appItem.submenu = appMenu
@@ -315,6 +318,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc private func openPickerFromMenu() { controller.openPicker() }
+    @objc private func openEmojiSettings() { EmojiSettingsWindow.show() }
 
     private func updatePassthrough() {
         guard panel.isVisible, controller.shown else { panel.ignoresMouseEvents = true; controller.pointerInside = false; return }
@@ -522,6 +526,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(new)
         if controller.shown { menu.addItem(hidePill) }
         menu.addItem(.separator())
+        menu.addItem(ActionItem("Choisir les emojis…") { EmojiSettingsWindow.show() })
 
         let sizeMenu = NSMenu()
         for s in ChatSize.allCases {
