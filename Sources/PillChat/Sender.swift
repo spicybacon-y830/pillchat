@@ -38,9 +38,13 @@ enum Sender {
 
     private static func run(_ sources: [String], completion: @escaping (Bool) -> Void) {
         quitWork?.cancel()
-        if !messagesRunning { launchedByUs = true }
+        let wasRunning = messagesRunning
+        if !wasRunning { launchedByUs = true }
         ensureMessagesRunning()
         queue.async {
+            // Messages fermée : on attend qu'elle ait fini de s'ouvrir (masquée) avant le script.
+            // Sinon « tell application "Messages" » la lance lui-même, au premier plan, fenêtre ouverte.
+            if !wasRunning { waitForMessages() }
             var ok = false
             for source in sources {
                 var error: NSDictionary?
@@ -48,7 +52,10 @@ enum Sender {
                 if error == nil { ok = true; dlog("envoyé"); break }
                 dlog("échec d'envoi \(String(describing: error?[NSAppleScript.errorNumber])) \(String(describing: error?[NSAppleScript.errorMessage]))")
             }
-            DispatchQueue.main.async { completion(ok); scheduleQuit() }
+            DispatchQueue.main.async {
+                if launchedByUs { hideMessages() } // au cas où sa fenêtre serait apparue quand même
+                completion(ok); scheduleQuit()
+            }
         }
     }
 
@@ -76,6 +83,23 @@ enum Sender {
 
     static var messagesRunning: Bool {
         !NSRunningApplication.runningApplications(withBundleIdentifier: messagesID).isEmpty
+    }
+
+    /// Attend (au plus 10 s) que Messages ait fini de s'ouvrir, puis la masque.
+    private static func waitForMessages() {
+        let deadline = Date().addingTimeInterval(10)
+        while Date() < deadline {
+            if let app = NSRunningApplication.runningApplications(withBundleIdentifier: messagesID).first,
+               app.isFinishedLaunching { break }
+            Thread.sleep(forTimeInterval: 0.1)
+        }
+        DispatchQueue.main.sync { hideMessages() }
+        Thread.sleep(forTimeInterval: 0.5) // le temps que Messages accepte les commandes AppleScript
+    }
+
+    /// Masque Messages sans la fermer (ouverte par PillChat : même si elle s'est mise au premier plan).
+    private static func hideMessages() {
+        NSRunningApplication.runningApplications(withBundleIdentifier: messagesID).forEach { $0.hide() }
     }
 
     /// Lance Messages masquée si elle est fermée : sans elle, rien ne part.

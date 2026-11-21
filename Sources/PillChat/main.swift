@@ -18,5 +18,5 @@ if args.count >= 3, args[1] == "--render" {
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.regular) // icône dans le Dock (un clic ouvre la recherche)
+delegate.applyDockPolicy() // icône dans le Dock (réglable dans le menu de la barre des menus)
 app.run()

@@ -399,6 +399,8 @@ final class ChatController: ObservableObject {
             addFiles(urls)
             return true
         }
+        // Du texte (un lien copié, par exemple) : collé tel quel dans le champ, même si une image l'accompagne.
+        if let text = pb.string(forType: .string), !text.isEmpty { return false }
         // Image sans fichier (capture copiée, image copiée depuis le web…) : on l'enregistre en PNG.
         if pb.availableType(from: [.png, .tiff]) != nil, let image = NSImage(pasteboard: pb),
            let tiff = image.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff),

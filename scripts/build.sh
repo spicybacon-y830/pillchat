@@ -3,12 +3,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-swift build -c release
+# Binaire universel : Mac Apple (M1…) et Mac Intel.
+ARCHS=(--arch arm64 --arch x86_64)
+swift build -c release "${ARCHS[@]}"
 
 APP="build/PillChat.app"
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
-cp "$(swift build -c release --show-bin-path)/PillChat" "$APP/Contents/MacOS/PillChat"
+cp "$(swift build -c release "${ARCHS[@]}" --show-bin-path)/PillChat" "$APP/Contents/MacOS/PillChat"
 if compgen -G "Resources/*" >/dev/null; then cp Resources/* "$APP/Contents/Resources/"; fi
 
 cat > "$APP/Contents/Info.plist" <<'PLIST'
@@ -38,7 +40,7 @@ PLIST
 
 # Certificat local « PillChat Dev » s'il existe : la signature reste la même d'une compilation à l'autre,
 # donc macOS garde les autorisations (accès au disque, micro…). Sinon, signature ad hoc.
-if security find-identity -p codesigning | grep -q "PillChat Dev"; then
+if [ -z "${NO_DEV_CERT:-}" ] && security find-identity -p codesigning | grep -q "PillChat Dev"; then
     codesign --force --sign "PillChat Dev" --identifier app.pillchat.PillChat "$APP" >/dev/null
 else
     codesign --force --sign - "$APP" >/dev/null

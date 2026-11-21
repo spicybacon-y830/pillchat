@@ -4,7 +4,7 @@ import SwiftUI
 /// Rendu des écrans avec des données fictives, pour comparer au fichier Paper sans toucher à Messages.
 enum Preview {
     @MainActor static func render(to url: URL) {
-        let emre = ChatInfo(id: 1, guid: "iMessage;-;+33600000000", name: "Emre Kuzu", handles: ["+33600000000"],
+        let alex = ChatInfo(id: 1, guid: "iMessage;-;+33600000000", name: "Alex Martin", handles: ["+33600000000"],
                             isGroup: false, image: nil)
         let msgs = [
             Message(id: 1, text: "Tu fais quoi ce soir ?", fromMe: true, date: .now, handle: nil, chatID: 1),
@@ -18,7 +18,7 @@ enum Preview {
             let rec = VoiceRecorder()
             let c = ChatController(store: store, recorder: rec, scale: 0.56)
             c.shown = true
-            c.chat = emre
+            c.chat = alex
             c.history = msgs
             setup(c, rec)
             let view = RootView(c: c, store: store, recorder: rec)
@@ -38,7 +38,7 @@ enum Preview {
         let bubbles = VStack(alignment: .leading, spacing: 8 * 0.56) {
             ForEach(Array((msgs + [Message(id: 4, text: "Grave, vas-y 🍿", fromMe: true, date: .now, handle: nil, chatID: 1, pending: true),
                                    Message(id: 5, text: "🤘🏿", fromMe: true, date: .now, handle: nil, chatID: 1)]).enumerated()), id: \.offset) { i, m in
-                Bubble(message: m, chat: emre, showAvatar: i == 2, S: 0.56)
+                Bubble(message: m, chat: alex, showAvatar: i == 2, S: 0.56)
             }
         }
         .padding(30).frame(width: 420).background(D.bg)

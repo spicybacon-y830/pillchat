@@ -105,6 +105,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         }
     }
 
+    /// Icône dans le Dock. Sans elle (app « agent »), macOS laisse la pilule apparaître aussi
+    /// par-dessus les apps en plein écran.
+    var showInDock: Bool {
+        get { defaults.object(forKey: "showInDock") as? Bool ?? true }
+        set { defaults.set(newValue, forKey: "showInDock"); applyDockPolicy() }
+    }
+
+    func applyDockPolicy() {
+        NSApp.setActivationPolicy(showInDock ? .regular : .accessory)
+    }
+
     private var keepMessagesOpen: Bool {
         get { defaults.object(forKey: "keepMessagesOpen") as? Bool ?? false } // fermée par défaut
         set { defaults.set(newValue, forKey: "keepMessagesOpen") }
@@ -125,7 +136,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         controller.onVisibility = { [weak self] visible in
             guard let self else { return }
             if visible {
-                if !self.panel.isVisible { self.panel.orderFrontRegardless() }
+                // Toujours remise devant : déjà « visible » ne veut pas dire visible sur le bureau actuel.
+                self.panel.orderFrontRegardless()
                 dlog("fenêtre affichée : \(NSStringFromRect(self.panel.frame))")
                 if self.pointerTimer == nil {
                     let t = Timer(timeInterval: 1.0 / 30, repeats: true) { [weak self] _ in self?.updatePassthrough() }
@@ -177,6 +189,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             .store(in: &cancellables)
         layoutWindow()
 
+        // Changement de bureau (Spaces, app en plein écran) : la pilule affichée suit sur le nouveau bureau.
+        NSWorkspace.shared.notificationCenter.publisher(for: NSWorkspace.activeSpaceDidChangeNotification)
+            .sink { [weak self] _ in
+                guard let self, self.controller.shown else { return }
+                self.panel.orderFrontRegardless()
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+                    dlog("changement de bureau : pilule \(self.panel.isOnActiveSpace ? "visible" : "ABSENTE") sur ce bureau")
+                }
+            }
+            .store(in: &cancellables)
+
         store.onMessage = { [weak self] m, chat in self?.controller.incoming(m, in: chat) }
         store.onReceipt = { [weak self] m in self?.controller.receipt(m) }
         store.onReactions = { [weak self] chatID, map in self?.controller.applyReactions(map, chatID: chatID) }
@@ -215,6 +238,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             if e.modifierFlags.contains(.command), e.charactersIgnoringModifiers?.lowercased() == "v",
                self.controller.mode == .conversation, self.controller.pasteFiles() {
                 return nil
+            }
+            // Raccourcis d'édition (coller un lien, copier, couper, tout sélectionner, annuler) :
+            // la pilule n'a pas de menu Édition actif, on les envoie nous-mêmes au champ qui a le curseur.
+            if e.modifierFlags.intersection([.command, .control, .option]) == .command, self.controller.isTyping {
+                let shift = e.modifierFlags.contains(.shift)
+                let action: Selector? = switch e.charactersIgnoringModifiers?.lowercased() {
+                case "v": #selector(NSText.paste(_:))
+                case "c": #selector(NSText.copy(_:))
+                case "x": #selector(NSText.cut(_:))
+                case "a": #selector(NSText.selectAll(_:))
+                case "z": shift ? Selector(("redo:")) : Selector(("undo:"))
+                default: nil
+                }
+                if let action, NSApp.sendAction(action, to: nil, from: self) { return nil }
             }
             // ⌘W ou @ : fermer la pilule. @ seulement quand le curseur n'est pas dans un champ
             // (on peut alors taper @ normalement). On teste le caractère produit et non la position
@@ -527,6 +564,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         menu.addItem(ActionItem("Couper les notifs de Messages…") {
             NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.Notifications-Settings.extension?id=com.apple.MobileSMS")!)
         })
+        let dock = ActionItem("Icône dans le Dock") { [weak self] in self?.showInDock.toggle() }
+        dock.state = showInDock ? .on : .off
+        menu.addItem(dock)
         let login = ActionItem("Ouvrir au démarrage") { Self.toggleLaunchAtLogin() }
         login.state = SMAppService.mainApp.status == .enabled ? .on : .off
         menu.addItem(login)
