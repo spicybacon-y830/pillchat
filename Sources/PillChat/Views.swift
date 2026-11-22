@@ -577,7 +577,7 @@ struct ConversationView: View {
                     }
                     .modifier(RiseIn(distance: 30 * S))
 
-                    EmojiRow(emojis: emojiPrefs.emojis, size: 40 * S, S: S) { c.react($0) }
+                    EmojiRow(emojis: emojiPrefs.emojis, size: 40 * S, S: S) { c.insertEmoji($0) }
                         .padding(.horizontal, 38 * S)
                         .padding(.vertical, 2 * S)
 

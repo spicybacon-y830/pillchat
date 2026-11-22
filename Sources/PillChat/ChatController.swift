@@ -327,6 +327,13 @@ final class ChatController: ObservableObject {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
             if field {
                 self.focusToken = abs(self.focusToken) + 1
+                // macOS sélectionne tout le texte d'un champ qui prend le focus : on place le curseur à la fin,
+                // sinon la prochaine touche effacerait le message en cours.
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.05) {
+                    if let tv = self.panel?.firstResponder as? NSTextView {
+                        tv.setSelectedRange(NSRange(location: (tv.string as NSString).length, length: 0))
+                    }
+                }
             } else {
                 self.focusToken = -abs(self.focusToken) - 1
                 self.panel?.makeFirstResponder(nil)
@@ -457,6 +464,13 @@ final class ChatController: ObservableObject {
             history[i].reactions.removeAll { $0.fromMe }
             history[i].reactions.append(Reaction(emoji: emoji, fromMe: true))
         }
+    }
+
+    /// Emoji de la rangée du bas : ajouté au message en cours (rien ne part avant Entrée).
+    func insertEmoji(_ emoji: String) {
+        dlog("emoji \(emoji) ajouté au brouillon")
+        draft += emoji
+        focus(field: true)
     }
 
     func react(_ emoji: String) {
