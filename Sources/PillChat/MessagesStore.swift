@@ -80,6 +80,12 @@ final class MessagesStore: ObservableObject {
 
     func retryNow() { queue.async { self.tick() } }
 
+    /// Mode démo : conversations inventées, sans lire la base.
+    func demoLoad(_ chats: [ChatInfo], previews: [Int64: ChatPreview]) {
+        recents = chats
+        self.previews = previews
+    }
+
     // MARK: Conversations vues dans PillChat
 
     /// Dernier message vu par conversation (retenu entre les lancements). Uniquement sur `queue`.

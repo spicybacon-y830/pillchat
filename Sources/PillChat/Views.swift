@@ -37,7 +37,7 @@ struct RootView: View {
                     }
                 }
                 .clipShape(shape)
-                .background(Surface(radius: D.panelRadius * S, S: S, translucent: true))
+                .modifier(PillBackground(S: S))
             }
         }
         .frame(width: D.width * S)
@@ -402,6 +402,7 @@ struct EmojiRow: View {
         HStack(spacing: 0) {
             ForEach(Array(emojis.enumerated()), id: \.offset) { i, e in
                 EmojiButton(emoji: e, size: size) { action(e) }
+                    .demoTarget("emoji\(i)")
                     .scaleEffect(scale(i), anchor: .bottom)
                     .offset(y: hovered == i ? -5 * S : 0)
                     .zIndex(hovered == i ? 2 : 0)
@@ -541,6 +542,7 @@ struct ConversationView: View {
                 let inset = c.peek ? 12 * S : bottomHeight
                 MessageList(c: c, maxHeight: Self.maxListHeight * S + inset + headerHeight + c.extraHeight,
                             bottomInset: inset, topInset: headerHeight)
+                    .demoTarget("list")
                     .padding(.horizontal, 32 * S)
 
                 if !c.peek {
@@ -564,15 +566,18 @@ struct ConversationView: View {
                             } else {
                                 input(S)
                                     .glassID("field", in: glass)
+                                    .demoTarget("field")
                                     .transition(.opacity)
                                 // Clic : lance l'enregistrement (arrêt, réécoute, suppression dans la barre).
                                 CircleControl(glyph: .mic, S: S, color: Color(hex: 0x8E8E8E)) {
                                     withAnimation(D.island) { recorder.start() }
                                 }
                                 .glassID("mic", in: glass)
+                                .demoTarget("mic")
                                 .transition(.scale(scale: 0.6).combined(with: .opacity))
                             }
                             SendButton(S: S, dim: !canSend) { c.sendDraft() }
+                                .demoTarget("send")
                         }
                     }
                     .modifier(RiseIn(distance: 30 * S))
@@ -624,6 +629,7 @@ struct ConversationView: View {
     private func header(_ S: CGFloat) -> some View {
         HStack(spacing: 16 * S) {
             CircleControl(glyph: .chevronLeft, S: S, glass: false) { c.openPicker() }
+                .demoTarget("back")
             Text(c.chat?.name ?? "")
                 .font(D.font(32 * S, 500))
                 .foregroundStyle(D.ink)
@@ -1119,6 +1125,7 @@ struct RecordBar: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(Bouncy(pressed: 0.88, hovered: 1.12))
+                .demoTarget("stop")
                 .transition(.modifier(active: SlideBlur(x: -40 * S, blur: 4, opacity: 0), identity: SlideBlur(x: 0, blur: 0, opacity: 1)))
             }
         }
@@ -1317,6 +1324,7 @@ struct ContactDisc: View {
                 }
                 .frame(width: size, height: size)
                 .clipShape(Circle())
+                .demoTarget("disc-\(firstName)")
                 .shadow(color: .black.opacity(hovering ? 0.08 : 0.04), radius: 27 * S, y: hovering ? 4 * S : 0)
                 // Bulle d'aperçu : même largeur que la photo, posée en haut, à cheval sur son bord.
                 .overlay(alignment: .top) {
@@ -1416,6 +1424,19 @@ struct SetupView: View {
                 }
                 .shadow(color: .black.opacity(0.1), radius: 20 * S, y: 8 * S)
             }
+        }
+    }
+}
+
+/// Fond de la pilule : verre de macOS 26 si demandé (vidéos de l'article), sinon le fond flouté habituel.
+struct PillBackground: ViewModifier {
+    let S: CGFloat
+    func body(content: Content) -> some View {
+        let shape = RoundedRectangle(cornerRadius: D.panelRadius * S, style: .continuous)
+        if D.glassPill, #available(macOS 26.0, *) {
+            content.glassEffect(.regular, in: shape)
+        } else {
+            content.background(Surface(radius: D.panelRadius * S, S: S, translucent: true))
         }
     }
 }

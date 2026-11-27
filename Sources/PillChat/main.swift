@@ -15,6 +15,11 @@ if args.count >= 3, args[1] == "--render" {
     exit(0)
 }
 
+// Vidéos de l'article : PillChat --demo <scène> <fond.jpg> <taille %> <x %> <y %> <sombre 0|1>
+if args.count >= 2, args[1] == "--demo" {
+    MainActor.assumeIsolated { Demo.run(args: args) }
+}
+
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate

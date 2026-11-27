@@ -25,6 +25,9 @@ enum D {
     static let grabber = Color(hex: 0xD3D3D3)
     static let placeholder = Color.adaptive(light: 0x000000, dark: 0xFFFFFF, lightAlpha: 0.22, darkAlpha: 0.3)
 
+    /// Fond de la pilule en Liquid Glass (mode démo) au lieu du flou habituel.
+    nonisolated(unsafe) static var glassPill = false
+
     static let control: CGFloat = 76
     static let pillRadius: CGFloat = 61
     static let panelRadius: CGFloat = 72
