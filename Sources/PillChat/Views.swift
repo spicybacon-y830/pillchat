@@ -631,8 +631,8 @@ struct ConversationView: View {
             Spacer(minLength: 0)
             // Appel FaceTime audio direct (pas pour les groupes).
             if c.chat?.isGroup == false {
-                // Verre transparent comme les autres boutons ronds, icône verte : on voit que c'est « appeler ».
-                CircleControl(glyph: .phone, S: S, color: Color(hex: 0x34C759)) { c.call() }
+                // Verre transparent comme les autres boutons ronds, icône blanche.
+                CircleControl(glyph: .phone, S: S, color: .white) { c.call() }
                     .help("Appel FaceTime audio")
             }
         }
